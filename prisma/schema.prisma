@@ -30,6 +30,42 @@ model Product {
     categoryId String
     category   Category @relation(fields: [categoryId], references: [id])
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+    createdAt  DateTime    @default(now())
+    updatedAt  DateTime    @updatedAt
+    orderItems OrderItem[]
+}
+
+model Order {
+    id String @id @default(cuid())
+
+    subtotal   Int
+    tax        Int
+    grandtotal Int
+
+    externalTransactionId String?
+    paymendMethodiD       String?
+
+    status OrderStatus @default(AWAITING_PAYMENT)
+    paidAt DateTime?
+
+    createdAt DateTime    @default(now())
+    updatedAt DateTime    @updatedAt
+    orderItems OrderItem[]
+}
+
+enum OrderStatus {
+    AWAITING_PAYMENT
+    PROCESSING
+    DONE
+}
+
+model OrderItem {
+    id        String @id @default(uuid())
+    productId String
+
+    product  Product @relation(fields: [productId], references: [id])
+    price    Int
+    quantity Int
+    orderId  String
+    order    Order   @relation(fields: [orderId], references: [id])
 }

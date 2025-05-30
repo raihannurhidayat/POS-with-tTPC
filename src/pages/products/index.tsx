@@ -42,6 +42,15 @@ const ProductsPage: NextPageWithLayout = () => {
     }
   })
 
+  const { mutate: deleteProduct } = api.product.deleteProduct.useMutation({
+    onSuccess: () => {
+      apiUtils.product.getProducts.invalidate()
+      toast.success("Berhasil menghapus product", { id: 'delete-product' })
+    }, onMutate: () => {
+      toast.loading("Loading...", { id: 'delete-product' })
+    }
+  })
+
 
   if (isLoading) {
     return <div>Loading...</div>;

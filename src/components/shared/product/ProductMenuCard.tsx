@@ -5,12 +5,15 @@ import Image from "next/image";
 import { type Product } from "@/data/mock/products";
 
 interface ProductMenuCardProps {
-  product: Product;
+  productId: string
+  name: string
+  price: number
+  imageUrl: string
   onAddToCart: (id: string) => void;
 }
 
 export const ProductMenuCard: React.FC<ProductMenuCardProps> = ({
-  product,
+  name, price, imageUrl, productId,
   onAddToCart,
 }) => {
   // Format price in Rupiah
@@ -24,13 +27,13 @@ export const ProductMenuCard: React.FC<ProductMenuCardProps> = ({
 
   return (
     <div className="hover:bg-accent/10 relative flex flex-col rounded-lg border p-4 transition-colors">
-      {product.image && (
+      {imageUrl && (
         <div className="mb-3 h-32 w-full overflow-hidden rounded-md relative">
           <Image
             unoptimized
             fill
-            src={product.image}
-            alt={product.name}
+            src={imageUrl}
+            alt={name}
             className="h-full w-full object-cover"
           />
         </div>
@@ -38,17 +41,17 @@ export const ProductMenuCard: React.FC<ProductMenuCardProps> = ({
 
       <div className="flex items-center justify-between">
         <div className="flex-1">
-          <h3 className="line-clamp-2 font-medium">{product.name}</h3>
+          <h3 className="line-clamp-2 font-medium">{name}</h3>
           <p className="text-muted-foreground mt-1 text-sm">
-            {formatPrice(product.price)}
+            {formatPrice(price)}
           </p>
         </div>
 
         <Button
           size="icon"
           // variant="secondary"
-          onClick={() => onAddToCart(product.id)}
-          aria-label={`Add ${product.name} to cart`}
+          onClick={() => onAddToCart(productId)}
+          aria-label={`Add ${name} to cart`}
         >
           <Plus className="h-4 w-4" />
         </Button>
