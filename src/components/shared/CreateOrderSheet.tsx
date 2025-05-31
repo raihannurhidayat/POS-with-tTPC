@@ -2,7 +2,7 @@ import { Button } from "../ui/button";
 
 import { PRODUCTS } from "@/data/mock";
 import { toRupiah } from "@/utils/toRupiah";
-import { CheckCircle2, Minus, Plus } from "lucide-react";
+import { CheckCircle2, Loader2, Minus, Plus } from "lucide-react";
 import Image from "next/image";
 import { useMemo, useState } from "react";
 import {
@@ -23,13 +23,14 @@ import {
 import { PaymentQRCode } from "./PaymentQrCode";
 import { useCartStore } from "@/store/cart";
 import { api } from "@/utils/api";
+import { toast } from "sonner";
 
 type OrderItemProps = {
   id: string;
   name: string;
   price: number;
   quantity: number;
-  imageUrl: string
+  imageUrl: string;
 };
 
 const OrderItem = ({ id, name, price, quantity, imageUrl }: OrderItemProps) => {
@@ -82,42 +83,77 @@ export const CreateOrderSheet = ({
   open,
   onOpenChange,
 }: CreateOrderSheetProps) => {
-
-  const cartStore = useCartStore()
+  const cartStore = useCartStore();
 
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [paymentInfoLoading, setPaymentInfoLoading] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
 
   const subtotal = cartStore.items.reduce((a, b) => {
-    return a + (b.price * b.quantity)
+    return a + b.price * b.quantity;
   }, 0);
-  const tax = useMemo(() => subtotal * 0.10, [subtotal]);
+  const tax = useMemo(() => subtotal * 0.1, [subtotal]);
   const grandTotal = useMemo(() => subtotal + tax, [subtotal, tax]);
 
-  const { mutate: createOrder, data: createOrderResponse } = api.order.createOrder.useMutation({
+  const { mutate: createOrder, data: createOrderResponse } =
+    api.order.createOrder.useMutation({
+      onSuccess: () => {
+        setPaymentDialogOpen(true);
+        setPaymentInfoLoading(false);
+      },
+    });
+
+  const { mutate: simulationPayment } = api.order.simulatePayment.useMutation({
     onSuccess: () => {
-      setPaymentDialogOpen(true)
-      setPaymentInfoLoading(false);
+      toast.success("Berhasil dibayar!");
+    },
+  });
+
+  const {
+    mutate: checkOrderStatus,
+    data: orderPaided,
+    isPending: checkOrderStatusIsPending,
+    reset: resetCheckOrderPaymentStatus,
+  } = api.order.checkOrderStatus.useMutation({
+    onSuccess: (orderPaid) => {
+      if (orderPaid) {
+        cartStore.clearCart();
+      }
+    },
+  });
+
+  const handleSimulatePayment = () => {
+    if (!createOrderResponse?.order) {
+      return;
     }
-  })
+
+    simulationPayment({
+      orderId: createOrderResponse?.order.id!,
+    });
+  };
 
   const handleCreateOrder = () => {
     setPaymentDialogOpen(true);
     setPaymentInfoLoading(true);
-    
+
     createOrder({
-      orderItems: cartStore.items.map(item => {
+      orderItems: cartStore.items.map((item) => {
         return {
           productId: item.productId,
-          quantity: item.quantity
-        }
-      })
-    })
+          quantity: item.quantity,
+        };
+      }),
+    });
   };
 
   const handleRefresh = () => {
     setPaymentSuccess(true);
+    checkOrderStatus({ orderId: createOrderResponse?.order.id! });
+  };
+
+  const handlePaymentClosePayment = () => {
+    setPaymentDialogOpen(false);
+    resetCheckOrderPaymentStatus();
   };
 
   return (
@@ -137,8 +173,15 @@ export const CreateOrderSheet = ({
               {/* Map order items here */}
               {cartStore.items.map((item) => {
                 return (
-                  <OrderItem id={item.productId} name={item.name} quantity={item.quantity} price={item.price} key={item.productId} imageUrl={item.imageUrl} />
-                )
+                  <OrderItem
+                    id={item.productId}
+                    name={item.name}
+                    quantity={item.quantity}
+                    price={item.price}
+                    key={item.productId}
+                    imageUrl={item.imageUrl}
+                  />
+                );
               })}
             </div>
           </div>
@@ -184,35 +227,48 @@ export const CreateOrderSheet = ({
               </div>
             ) : (
               <>
-                <Button variant="link" onClick={handleRefresh}>
-                  Refresh
+                <Button
+                  variant="link"
+                  disabled={checkOrderStatusIsPending}
+                  onClick={handleRefresh}
+                >
+                  {!orderPaided && checkOrderStatusIsPending ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    "Refresh"
+                  )}
                 </Button>
 
-                {!paymentSuccess ? (
+                {!orderPaided ? (
                   <PaymentQRCode qrString={createOrderResponse?.qrString!} />
                 ) : (
                   <CheckCircle2 className="size-80 text-green-500" />
                 )}
 
-                <p className="text-3xl font-medium">{toRupiah(createOrderResponse?.order?.grandtotal!)}</p>
+                <p className="text-3xl font-medium">
+                  {toRupiah(createOrderResponse?.order?.grandtotal!)}
+                </p>
 
                 <p className="text-muted-foreground text-sm">
-                  Transaction ID: {createOrderResponse?.order.externalTransactionId}
+                  Transaction ID: {createOrderResponse?.order.paymendMethodiD!}
                 </p>
+
+                <Button variant={"link"} onClick={handleSimulatePayment}>
+                  Simulate Payment
+                </Button>
               </>
             )}
           </div>
 
           <AlertDialogFooter>
-            <AlertDialogCancel asChild>
-              <Button
-                disabled={paymentInfoLoading}
-                variant="outline"
-                className="w-full"
-              >
-                Done
-              </Button>
-            </AlertDialogCancel>
+            <Button
+              disabled={paymentInfoLoading}
+              variant="outline"
+              className="w-full"
+              onClick={handlePaymentClosePayment}
+            >
+              Done
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
